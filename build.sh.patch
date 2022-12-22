@@ -1,0 +1,8 @@
+--- scripts/build.sh	2022-12-21 20:54:08.000000000 +0100
++++ scripts/build.sh.new	2022-12-21 21:05:01.000000000 +0100
+@@ -5,4 +5,4 @@
+ REPO="github.com/drone/drone"
+ 
+ # compile the server using the cgo
+-go build -ldflags "-extldflags \"-static\"" -o release/linux/${GOARCH}/drone-server ${REPO}/cmd/drone-server
++go build -tags "nolimit" -ldflags "-extldflags \"-static\"" -o release/linux/${GOARCH}/drone-server ${REPO}/cmd/drone-server

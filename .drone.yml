@@ -1,0 +1,63 @@
+---
+kind: pipeline
+type: docker
+name: drone-nolimit
+
+steps:
+  - name: docker
+    image: docker:dind
+    privileged: true
+    detach: true
+    command: [ "dockerd", "--host=tcp://0.0.0.0:2375" ]
+
+  - name: source
+    image: alpine:latest
+    commands:
+    - apk add --update --no-cache curl jq git patch
+    - LATEST=$(curl -sL "https://api.github.com/repos/harness/drone/releases" | jq -r ".[0].tag_name")
+    - TAG=$${LATEST//v}
+    - if curl -sfL https://hub.docker.com/v2/repositories/ezkrg/drone/tags/$TAG > /dev/null; then echo "tag $TAG already exist"; exit 78; fi
+    - git clone -n https://github.com/harness/drone.git
+    - cd drone
+    - git checkout $LATEST
+    - patch -p0 < ../build.sh.patch
+    - echo -n "latest,$TAG" > ../.tags
+    - while [ -z $${TAG##*\.*} ]; do echo -n "," >> ../.tags; TAG=$${TAG%*\.*}; echo -n $TAG >> ../.tags; done
+
+  - name: build
+    image: docker:cli
+    environment:
+      DOCKER_HOST: tcp://docker:2375
+    commands:
+    - while ! docker info; do sleep 1; done
+    - apk add --update --no-cache curl
+    - curl -sL https://github.com/harness/drone-cli/releases/latest/download/drone_linux_amd64.tar.gz | tar -C /usr/local/bin -zx
+    - cd drone
+    - drone exec --pipeline linux-amd64 --include build .drone.yml
+
+  - name: publish
+    image: plugins/docker
+    environment:
+      DOCKER_HOST: tcp://docker:2375
+    settings:
+      daemon_off: true
+      force_tag: true
+      context: drone
+      dockerfile: drone/docker/Dockerfile.server.linux.amd64
+      repo: ezkrg/drone
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+
+trigger:
+  event:
+  - cron
+  cron:
+  - nightly
+
+---
+kind: signature
+hmac: 636edf273dda9024295893ee52b37a9068afa745473d5fd6e3bf5d0906ba775b
+
+...

@@ -4,12 +4,6 @@ type: docker
 name: drone-nolimit
 
 steps:
-  - name: docker
-    image: docker:dind
-    privileged: true
-    detach: true
-    command: [ "dockerd", "--host=tcp://0.0.0.0:2375" ]
-
   - name: source
     image: alpine:latest
     commands:
@@ -23,6 +17,12 @@ steps:
     - patch -p0 < ../build.sh.patch
     - echo -n "latest,$TAG" > ../.tags
     - while [ -z $${TAG##*\.*} ]; do echo -n "," >> ../.tags; TAG=$${TAG%*\.*}; echo -n $TAG >> ../.tags; done
+
+  - name: docker
+    image: docker:dind
+    privileged: true
+    detach: true
+    command: [ "dockerd", "--host=tcp://0.0.0.0:2375" ]
 
   - name: build
     image: docker:cli
@@ -58,6 +58,6 @@ trigger:
 
 ---
 kind: signature
-hmac: 636edf273dda9024295893ee52b37a9068afa745473d5fd6e3bf5d0906ba775b
+hmac: e638325ce8585fd85c9fcbfd2ba3417af0a1c4d52ff935ac05cfdc87c67e45d1
 
 ...
